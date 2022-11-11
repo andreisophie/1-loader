@@ -13,7 +13,6 @@
 #include <fcntl.h>
 
 #include "exec_parser.h"
-#include "debug.h"
 
 static so_exec_t *exec;
 static struct sigaction old_action;
@@ -31,8 +30,11 @@ void handler(int signal, siginfo_t *info, void *context)
 
 	// address that generated error
 	uintptr_t addr = (uintptr_t)info->si_addr;
-
+	
+	// variable declarations
+	uintptr_t page_addr;
 	unsigned int page_index;
+	unsigned int page_offset;
 	int *seg_data;
 	so_seg_t *seg;
 
@@ -40,35 +42,45 @@ void handler(int signal, siginfo_t *info, void *context)
 	for (int i = 0; i < exec->segments_no; i++) {
 		// current segment
 		seg = &(exec->segments[i]);
-		// boolean vector that remembers whether segment was loaded in memory
+		// boolean vector that remembers whether segments were loaded in memory
 		seg_data = exec->segments[i].data;
 
 		// check if address that threw segfault is inside current segment
 		if (seg->vaddr <= addr && addr < seg->vaddr + seg->mem_size) {
+			// boolean vector that remembers whether 
+			// segments were loaded in memory
+			seg_data = exec->segments[i].data;
 			// get page index
 			page_index = (addr - seg->vaddr) / page_size;
 
 			// check if page is not allocated
 			if (seg_data[page_index] == 0) {
-				unsigned int page_addr = page_index * page_size;
+				// offset of the page relative to segment start
+				page_offset = page_index * page_size;
+				// address where the page containing the segfault begins
+				page_addr = seg->vaddr + page_offset;
 				// allocate virtual memory for accessed page
-				mmap((void *)(seg->vaddr + page_addr), page_size,
-					 PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS, 0, 0);
+				mmap((void *)page_addr, page_size, PROT_WRITE,
+					 MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS, 0, 0);
 
-				/*
-				* Copy data from exec to the new page
-				*/
-				if (seg->file_size > page_addr) {
-					lseek(fd, seg->offset + page_addr, SEEK_SET);
-					if (seg->file_size < page_addr + page_size) {
-						read(fd, (void *)(seg->vaddr + page_addr), seg->file_size - page_addr);
-					} else {
-						read(fd, (void *)(seg->vaddr + page_addr), page_size);
+
+				// move cursor inside exec to the start of the page
+				lseek(fd, seg->offset + page_offset, SEEK_SET);
+				// check if segment fills the whole page
+				if (seg->file_size >= page_offset + page_size) {
+					// if yes, copy entire page
+					read(fd, (void *)page_addr, page_size);
+				} else {
+					// else, check if segments fills only parts of the page
+					if (seg->file_size > page_offset) {
+						// if yes, copy only the part that is inside the segment
+						read(fd, (void *)page_addr,
+							seg->file_size - page_offset);
 					}
 				}
 
-
-				mprotect((void *)(seg->vaddr + page_addr), page_size, seg->perm);
+				// change permissions for page
+				mprotect((void *)page_addr, page_size, seg->perm);
 
 				// mark page as allocated
 				seg_data[page_index] = 1;
