@@ -60,10 +60,10 @@ void handler(int signal, siginfo_t *info, void *context)
 				*/
 				if (seg->file_size > page_addr) {
 					lseek(fd, seg->offset + page_addr, SEEK_SET);
-					if (seg->file_size < (page_index + 1) * page_size) {
+					if (seg->file_size < page_addr + page_size) {
 						read(fd, (void *)(seg->vaddr + page_addr), seg->file_size - page_addr);
 					} else {
-						read(fd, (void *)(seg->vaddr + page_addr), seg->file_size);
+						read(fd, (void *)(seg->vaddr + page_addr), page_size);
 					}
 				}
 
