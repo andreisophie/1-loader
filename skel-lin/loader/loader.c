@@ -32,49 +32,43 @@ void handler(int signal, siginfo_t *info, void *context)
 	// address that generated error
 	uintptr_t addr = (uintptr_t)info->si_addr;
 
-	uintptr_t seg_start_addr;
-	unsigned int seg_size_mem;
-	unsigned int seg_size_file;
 	unsigned int page_index;
 	int *seg_data;
-	void *p;
+	so_seg_t *seg;
 
 	// search for address in each segment from exec
 	for (int i = 0; i < exec->segments_no; i++) {
-		// address at which segment begins in memory
-		seg_start_addr = exec->segments[i].vaddr;
-		// segment size in memory
-		seg_size_mem = exec->segments[i].mem_size;
-		// segment size on file
-		seg_size_file = exec->segments[i].file_size;
+		// current segment
+		seg = &(exec->segments[i]);
 		// boolean vector that remembers whether segment was loaded in memory
 		seg_data = exec->segments[i].data;
 
 		// check if address that threw segfault is inside current segment
-		if (seg_start_addr <= addr && addr < seg_start_addr + seg_size_mem) {
+		if (seg->vaddr <= addr && addr < seg->vaddr + seg->mem_size) {
 			// get page index
-			page_index = (addr - seg_start_addr) / page_size;
+			page_index = (addr - seg->vaddr) / page_size;
 
 			// check if page is not allocated
 			if (seg_data[page_index] == 0) {
 				unsigned int page_addr = page_index * page_size;
 				// allocate virtual memory for accessed page
-				p = mmap((void *)(seg_start_addr + page_addr), page_size,
-						 PROT_WRITE, MAP_FIXED | MAP_SHARED | MAP_ANONYMOUS, 0, 0);
+				mmap((void *)(seg->vaddr + page_addr), page_size,
+					 PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS, 0, 0);
 
 				/*
 				* Copy data from exec to the new page
 				*/
-				if (seg_size_file > page_addr) {
-					lseek(fd, exec->segments[i].offset + page_addr, SEEK_SET);
-					if (seg_size_file < (page_index + 1) * page_size) {
-						read(fd, p, seg_size_file - page_addr);
+				if (seg->file_size > page_addr) {
+					lseek(fd, seg->offset + page_addr, SEEK_SET);
+					if (seg->file_size < (page_index + 1) * page_size) {
+						read(fd, (void *)(seg->vaddr + page_addr), seg->file_size - page_addr);
 					} else {
-						read(fd, p, page_size);
+						read(fd, (void *)(seg->vaddr + page_addr), seg->file_size);
 					}
 				}
 
-				mprotect(p, page_size, exec->segments[i].perm);
+
+				mprotect((void *)(seg->vaddr + page_addr), page_size, seg->perm);
 
 				// mark page as allocated
 				seg_data[page_index] = 1;
@@ -137,5 +131,5 @@ int so_execute(char *path, char *argv[])
 
 	so_start_exec(exec, argv);
 
-	return 0;
+	return 1;
 }

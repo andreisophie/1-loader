@@ -14,11 +14,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	printf(stderr, "Am ajuns aici\n");
-	fflush(stdin);
-
 	so_init_loader();
-
 	
 	so_execute(argv[1], argv + 1);
 
