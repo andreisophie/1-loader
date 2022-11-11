@@ -63,7 +63,6 @@ void handler(int signal, siginfo_t *info, void *context)
 				mmap((void *)page_addr, page_size, PROT_WRITE,
 					 MAP_SHARED | MAP_FIXED_NOREPLACE | MAP_ANONYMOUS, 0, 0);
 
-
 				// move cursor inside exec to the start of the page
 				lseek(fd, seg->offset + page_offset, SEEK_SET);
 				// check if segment fills the whole page
