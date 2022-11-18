@@ -1,57 +1,23 @@
-# Skeleton for building a ELF loader
+# TEMA 1 SISTEME DE OPERARE
 
-## Introduction
-This project contains a skeleton for building an
-[ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) binary
-on-demand loader in Linux. The loader will provide two methods, defined in the
-`loader.h` header:
-* `int so_init_loader(void);` - initializes the on-demand loader
-* `int so_execute(char *path, char *argv[]);` - executes the binary located in
-`path` with the required `argv` arguments.
+by Andrei Mărunțiș
 
-## Content
-The project contains of three components, each of them in its own
-directory:
-* `loader` - a dynamic library that can be used to run ELF binaries. It
-consists of the following files:
-  * `exec_parser.c` - Implements an ELF binary parser.
-  * `exec_parser.h` - The header exposed by the ELF parser.
-  * `loader.h` - The interface of the loader, described in the
-  [Introduction](#introduction) section.
-  * `loader.c` - This is where the loader should be implemented.
-  * `debug.h` - header for the `dprintf` function that can be used for logging
-  and debugging.
-* `exec` - a program that uses the `libso_loader.so` library to run an ELF
-binary received as argument.
-* `test_prog` - an ELF binary used to test the loader implementation.
+## Detalii implementare
 
-There project also contains 2 makefiles:
-* `Makefile` - builds the `libso_loader.so` library from the `loader`
-directory
-* `Makefile.example` - builds the `so_exec` and `so_test_prog` binaries from
-the `exec` and `test_prog` directories that can be used to test the loader.
+Tema consta in implementarea unei rutine care sa trateze segfault-uri care provind din programul rulat de loader.
+**Nota:** Am implementat eu lucrul cu semnale, caci am rezolvat tema inainte de actualizarea scheletului
+Am folosit mai multe variabile globale pentru a stoca date precum *file descriptor*-ul, vechea rutina de tratare a segfault-urilor, pagesize-ul sistemului pe care ma aflu.
+Mentionez in mod special ca am pastrat si vechia rutina de tratare a segfault-urilor pentru a o apela in cazul in care primesc un segfault care nu se datoreaza memoriei nealocate a executabilului; astfel, impiedic ciclarea la infinit a programului pentru acces invalid la memorie.
+Pentru a avea in vedere care pagini au fost deja alocate, stochez in pointer-ul data din structura segment un vector caracteristic care va avea valoarea 0 daca nu am alocat inca pagina sau 1 daca pagina e deja alocata. Acesti vectori sunt initializati inainte de rularea executabilului.
+**Functionarea rutinei**: Caut segmentul si pagina care au generat segfault-ul. Daca ele exista in executabilul meu, le aloc memorie si scriu date in pagina alocata (daca este cazul). Daca paginile nu exista, apelez rutina veche ca sa ies din program. La final, modific permisiunile paginii nou alocate. Pentru mai multe detalii, comentariile din cod sunt foarte sigestive.
 
-## Usage Build the loader:
-```
-make
-```
+## Alte comentarii asupra temei
 
-This should generate the `libso_loader.so` library. Next, build the example:
-
-```
-make -f Makefile.example
-```
-
-This should generate the `so_exec` and `so_test_prog` used for the test:
-
-```
-LD_LIBRARY_PATH=. ./so_exec so_test_prog
-```
-
-**NOTE:** the skeleton does not have the loader implemented, thus when running
-the command above, your program will crash!
-
-## Notes
-This skeleton is provided by the Operating System team from the University
-Politehnica of Bucharest to their students to help them complete their
-Executable Loader assignment.
+Tema ar putea fi imbunatatita in cateva moduri:
+- verific valoarea returnata de apelurile de sistem pentru a evita situatii neprevazute; asta ar fi ajutat si la debug
+- as putea sa evit anumite apeluri de sistem; spre exemplu, daca pagina alocata trebuie sa ramana umpluta cu 0, nu mai este nevoie sa mut file descriptor-ul in fisier (operatie care, oricum, nu are sens in aceasta situatie).
+Lucrand la aceasta tema am invatat:
+- sa lucrez cu semnale
+- cum functioneaza pagefault-urile
+- am exersat lucrul cu wrappere ale apelurilor de sistem
+- structura fisierelor executabile

@@ -71,6 +71,7 @@ void handler(int signal, siginfo_t *info, void *context)
 					read(fd, (void *)page_addr, page_size);
 				} else {
 					// else, check if segments fills only parts of the page
+					// (segment might end before the page even starts)
 					if (seg->file_size > page_offset) {
 						// if yes, copy only the part that is inside the segment
 						read(fd, (void *)page_addr,
